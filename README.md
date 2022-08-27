@@ -1,1 +1,1 @@
-Simple web-server golang+sqlite3
+Simple web-server golang+fasthttp+sqlite3
