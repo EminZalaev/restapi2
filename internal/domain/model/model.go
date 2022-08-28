@@ -1,19 +1,9 @@
 package model
 
-//все результаты с таблицы
-type AllBenchmarks struct {
-	AllMetrics []AllBenchmarkMetrics
-}
-
-type AllBenchmarkMetrics struct {
-	Date    string
-	Metrics []Metrics
-}
-
 //все результаты по конкретной дате
 type FullResult struct {
 	Date    string
-	Metrics []*Metrics
+	Metrics []Metrics
 }
 
 //ns/op по конкретной дате

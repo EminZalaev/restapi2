@@ -2,10 +2,11 @@ package api
 
 import (
 	"fmt"
-	"github.com/valyala/fasthttp"
-	"log"
+
 	"webserver/internal/domain/service"
-	"webserver/logger"
+	"webserver/pkg/logger"
+
+	"github.com/valyala/fasthttp"
 )
 
 type server struct {
@@ -22,7 +23,7 @@ func NewServer(srvc *service.Service, log *logger.Logger) *server {
 
 func (s *server) Start(port string) error {
 	requestHandler := s.createRequestHandler()
-	log.Println("server started at port:", port)
+	s.logger.Print("server started at port:", port)
 
 	if err := fasthttp.ListenAndServe(":"+port, requestHandler); err != nil {
 		return fmt.Errorf("error start server: %w", err)
@@ -36,20 +37,20 @@ func (s *server) createRequestHandler() func(ctx *fasthttp.RequestCtx) {
 		switch string(ctx.Path()) {
 		case "/full":
 			writeCors(ctx)
-			s.processFull(ctx)
 			s.logger.Middleware(ctx)
+			s.processFull(ctx)
 		case "/timestat":
 			writeCors(ctx)
-			s.processStat(ctx)
 			s.logger.Middleware(ctx)
+			s.processStat(ctx)
 		case "/compare":
 			writeCors(ctx)
-			s.processCompare(ctx)
 			s.logger.Middleware(ctx)
+			s.processCompare(ctx)
 		case "/all":
 			writeCors(ctx)
-			s.processAll(ctx)
 			s.logger.Middleware(ctx)
+			s.processAll(ctx)
 		default:
 			ctx.Error("not found", fasthttp.StatusNotFound)
 			s.logger.Middleware(ctx)
@@ -64,12 +65,14 @@ func (s *server) processStat(ctx *fasthttp.RequestCtx) {
 		writeError(ctx, "internal error", fasthttp.StatusNoContent)
 		return
 	}
+
 	stat, err := s.service.GetNsPerOp(req)
 	if err != nil {
 		s.logger.Print("error get ns per op: ", err)
 		writeError(ctx, "internal error", fasthttp.StatusNoContent)
 		return
 	}
+
 	ctx.Response.SetBody(stat)
 }
 
@@ -80,12 +83,14 @@ func (s *server) processFull(ctx *fasthttp.RequestCtx) {
 		writeError(ctx, "internal error", fasthttp.StatusNoContent)
 		return
 	}
+
 	mem, err := s.service.GetFullResultByDateAndQuery(req)
 	if err != nil {
 		s.logger.Print("error get full result: ", err)
 		writeError(ctx, "internal error", fasthttp.StatusNoContent)
 		return
 	}
+
 	ctx.Response.SetBody(mem)
 }
 
@@ -96,10 +101,14 @@ func (s *server) processCompare(ctx *fasthttp.RequestCtx) {
 		writeError(ctx, "internal error", fasthttp.StatusNoContent)
 		return
 	}
+
 	cmp, err := s.service.CompareResults(req)
 	if err != nil {
+		s.logger.Print("error compare results:", err)
+		writeError(ctx, "internal error", fasthttp.StatusNoContent)
 		return
 	}
+
 	ctx.Response.SetBody(cmp)
 }
 
@@ -110,6 +119,7 @@ func (s *server) processAll(ctx *fasthttp.RequestCtx) {
 		writeError(ctx, "internal error", fasthttp.StatusInternalServerError)
 		return
 	}
+
 	ctx.Response.SetBody(cmp)
 }
 

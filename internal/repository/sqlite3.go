@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+
 	"webserver/internal/domain/model"
 )
 
@@ -16,19 +17,19 @@ func NewStore(db *sql.DB) *Store {
 	}
 }
 
-func (s *Store) GetAllMetrics() (*model.AllBenchmarks, error) {
+func (s *Store) GetMetrics() ([]model.FullResult, error) {
 	result := make([]model.Metrics, 0)
 	mtrc := &model.Metrics{}
 
 	var date, oldDate string
-
-	allRes := make([]model.AllBenchmarkMetrics, 0)
-	dbRows, err := s.db.Query("SELECT d.benchdate,queries,offheap,instack,totalusedmemory,allocationrates,numberofliveobjects,rateobjectsallocated,goroutines,inheap,nsperop from memorymetrics m, date d where m.benchdate = d.id")
+	allRes := make([]model.FullResult, 0)
+	query := "SELECT d.benchdate,queries,offheap,instack,totalusedmemory,allocationrates,numberofliveobjects,rateobjectsallocated,goroutines,inheap,nsperop from memorymetrics m, date d where m.benchdate = d.id"
+	dbRows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
 	for dbRows.Next() {
-		err = dbRows.Scan(&date,
+		if err = dbRows.Scan(&date,
 			&mtrc.Query,
 			&mtrc.OffHeap,
 			&mtrc.InStack,
@@ -38,26 +39,18 @@ func (s *Store) GetAllMetrics() (*model.AllBenchmarks, error) {
 			&mtrc.RateObjectsAllocated,
 			&mtrc.Goroutines,
 			&mtrc.InHeap,
-			&mtrc.NsPerOp)
+			&mtrc.NsPerOp); err != nil {
+			return nil, err
+		}
+
+		result, err = addMetrics(*mtrc, result)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, model.Metrics{
-			Query:                mtrc.Query,
-			OffHeap:              mtrc.OffHeap,
-			InStack:              mtrc.InStack,
-			TotalUsedMemory:      mtrc.TotalUsedMemory,
-			AllocationRates:      mtrc.AllocationRates,
-			NumberOfLiveObjects:  mtrc.NumberOfLiveObjects,
-			RateObjectsAllocated: mtrc.RateObjectsAllocated,
-			Goroutines:           mtrc.Goroutines,
-			InHeap:               mtrc.InHeap,
-			NsPerOp:              mtrc.NsPerOp,
-		})
 
 		if date != oldDate {
 			if len(result) > 1 {
-				allRes = append(allRes, model.AllBenchmarkMetrics{
+				allRes = append(allRes, model.FullResult{
 					Date:    oldDate,
 					Metrics: result[:len(result)-1],
 				})
@@ -68,73 +61,24 @@ func (s *Store) GetAllMetrics() (*model.AllBenchmarks, error) {
 
 	}
 
-	allRes = append(allRes, model.AllBenchmarkMetrics{
+	allRes = append(allRes, model.FullResult{
 		Date:    oldDate,
 		Metrics: result,
 	})
 
-	return &model.AllBenchmarks{
-		AllMetrics: allRes,
-	}, nil
+	return allRes, nil
 }
 
-func (s *Store) GetMetricsByDate(date string) (*model.AllBenchmarks, error) {
+func (s *Store) GetMetricsByDate(date string) (*model.FullResult, error) {
 	result := make([]model.Metrics, 0)
 	mtrc := &model.Metrics{}
-
-	var oldDate string
-	allRes := make([]model.AllBenchmarkMetrics, 0)
-	dbRowsFirst, err := s.db.Query("SELECT queries,offheap,instack,totalusedmemory,allocationrates,numberofliveobjects,rateobjectsallocated,goroutines,inheap,nsperop from memorymetrics m, date d where m.benchdate = d.id and d.benchdate=$1", date)
-	if err != nil {
-		return nil, err
-	}
-	for dbRowsFirst.Next() {
-		err = dbRowsFirst.Scan(
-			&mtrc.Query,
-			&mtrc.OffHeap,
-			&mtrc.InStack,
-			&mtrc.TotalUsedMemory,
-			&mtrc.AllocationRates,
-			&mtrc.NumberOfLiveObjects,
-			&mtrc.RateObjectsAllocated,
-			&mtrc.Goroutines,
-			&mtrc.InHeap,
-			&mtrc.NsPerOp)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, model.Metrics{
-			Query:                mtrc.Query,
-			OffHeap:              mtrc.OffHeap,
-			InStack:              mtrc.InStack,
-			TotalUsedMemory:      mtrc.TotalUsedMemory,
-			AllocationRates:      mtrc.AllocationRates,
-			NumberOfLiveObjects:  mtrc.NumberOfLiveObjects,
-			RateObjectsAllocated: mtrc.RateObjectsAllocated,
-			Goroutines:           mtrc.Goroutines,
-			InHeap:               mtrc.InHeap,
-			NsPerOp:              mtrc.NsPerOp,
-		})
-
-		allRes = append(allRes, model.AllBenchmarkMetrics{
-			Date:    oldDate,
-			Metrics: result,
-		})
-	}
-	return &model.AllBenchmarks{
-		AllMetrics: allRes,
-	}, nil
-}
-
-func (s *Store) GetFullByQuery(date string) (*model.FullResult, error) {
-	result := make([]*model.Metrics, 0)
-	mtrc := &model.Metrics{}
-	dbRows, err := s.db.Query("SELECT queries,offheap,instack,totalusedmemory,allocationrates,numberofliveobjects,rateobjectsallocated,goroutines,inheap,nsperop from memorymetrics m, date d where m.benchdate = d.id and d.benchdate=$1", date)
+	query := "SELECT queries,offheap,instack,totalusedmemory,allocationrates,numberofliveobjects,rateobjectsallocated,goroutines,inheap,nsperop from memorymetrics m, date d where m.benchdate = d.id and d.benchdate=$1"
+	dbRows, err := s.db.Query(query, date)
 	if err != nil {
 		return nil, err
 	}
 	for dbRows.Next() {
-		err = dbRows.Scan(&mtrc.Query,
+		if err := dbRows.Scan(&mtrc.Query,
 			&mtrc.OffHeap,
 			&mtrc.InStack,
 			&mtrc.TotalUsedMemory,
@@ -143,24 +87,15 @@ func (s *Store) GetFullByQuery(date string) (*model.FullResult, error) {
 			&mtrc.RateObjectsAllocated,
 			&mtrc.Goroutines,
 			&mtrc.InHeap,
-			&mtrc.NsPerOp)
+			&mtrc.NsPerOp); err != nil {
+			return nil, err
+		}
+
+		result, err = addMetrics(*mtrc, result)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, &model.Metrics{
-			Query:                mtrc.Query,
-			OffHeap:              mtrc.OffHeap,
-			InStack:              mtrc.InStack,
-			TotalUsedMemory:      mtrc.TotalUsedMemory,
-			AllocationRates:      mtrc.AllocationRates,
-			NumberOfLiveObjects:  mtrc.NumberOfLiveObjects,
-			RateObjectsAllocated: mtrc.RateObjectsAllocated,
-			Goroutines:           mtrc.Goroutines,
-			InHeap:               mtrc.InHeap,
-			NsPerOp:              mtrc.NsPerOp,
-		})
 	}
-
 	if mtrc.Query == "" {
 		return nil, fmt.Errorf("error wrong input data")
 	}
@@ -174,12 +109,14 @@ func (s *Store) GetFullByQuery(date string) (*model.FullResult, error) {
 func (s *Store) GetNsPerOpByDate(date string) (*model.BenchStat, error) {
 	result := make([]*model.Stat, 0)
 	mtrc := &model.Stat{}
-	dbRows, err := s.db.Query("SELECT queries,nsperop from memorymetrics m, date d where m.benchdate = d.id and d.benchdate=$1", date)
+	query := "SELECT queries,nsperop from memorymetrics m, date d where m.benchdate = d.id and d.benchdate=$1"
+	dbRows, err := s.db.Query(query, date)
 	if err != nil {
 		return nil, err
 	}
 	for dbRows.Next() {
-		err = dbRows.Scan(&mtrc.Query,
+		err = dbRows.Scan(
+			&mtrc.Query,
 			&mtrc.NsPerOp)
 		if err != nil {
 			return nil, fmt.Errorf("error scan from db")
@@ -198,4 +135,20 @@ func (s *Store) GetNsPerOpByDate(date string) (*model.BenchStat, error) {
 		Date: date,
 		Stat: result,
 	}, nil
+}
+
+func addMetrics(mtrc model.Metrics, result []model.Metrics) ([]model.Metrics, error) {
+	result = append(result, model.Metrics{
+		Query:                mtrc.Query,
+		OffHeap:              mtrc.OffHeap,
+		InStack:              mtrc.InStack,
+		TotalUsedMemory:      mtrc.TotalUsedMemory,
+		AllocationRates:      mtrc.AllocationRates,
+		NumberOfLiveObjects:  mtrc.NumberOfLiveObjects,
+		RateObjectsAllocated: mtrc.RateObjectsAllocated,
+		Goroutines:           mtrc.Goroutines,
+		InHeap:               mtrc.InHeap,
+		NsPerOp:              mtrc.NsPerOp,
+	})
+	return result, nil
 }

@@ -4,9 +4,8 @@ import (
 	"webserver/api"
 	"webserver/internal/bootstrap"
 	"webserver/internal/domain/service"
-	"webserver/logger"
-
 	"webserver/internal/repository"
+	"webserver/pkg/logger"
 
 	"github.com/spf13/pflag"
 )
@@ -16,7 +15,7 @@ type Scope struct {
 	db   string
 }
 
-//go run main.go -d <путь до базы данных sqlite3> -p <порт(по дефолту 8000)> -l (логгер(по дефолту выключен))
+//go run main.go -d <путь до базы данных sqlite3> -p <порт(по дефолту 8000)>
 
 func main() {
 	var scope Scope
